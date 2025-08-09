@@ -49,6 +49,34 @@ RUN --mount=type=cache,target=/root/.ccache \
         && cmake --build --parallel --preset 'Vulkan' \
         && cmake --install build --component Vulkan --strip --parallel 8
 
+# Lightweight Ubuntu-based Vulkan toolchain to avoid heavy ROCm base in CI
+FROM ubuntu:24.04 AS ubuntu-vulkan-base
+ARG CMAKEVERSION
+ARG VULKANVERSION
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential curl ca-certificates ninja-build pkg-config python3 \
+       shaderc libvulkan-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSION}/cmake-${CMAKEVERSION}-linux-$(uname -m).tar.gz \
+       | tar xz -C /usr/local --strip-components 1 \
+    && curl -fsSL https://sdk.lunarg.com/sdk/download/${VULKANVERSION}/linux/vulkansdk-linux-x86_64-${VULKANVERSION}.tar.xz -o /tmp/vulkansdk.tar.xz \
+    && tar -xf /tmp/vulkansdk.tar.xz -C / \
+    && /${VULKANVERSION}/vulkansdk -j 8 vulkan-headers shaderc \
+    && cp -r /${VULKANVERSION}/x86_64/include/* /usr/local/include/ \
+    && cp -r /${VULKANVERSION}/x86_64/lib/* /usr/local/lib
+ENV VULKAN_SDK=/${VULKANVERSION}/x86_64
+ENV PATH=${VULKAN_SDK}/bin:/usr/local/bin:$PATH
+ENV CMAKE_PREFIX_PATH=${VULKAN_SDK}
+COPY CMakeLists.txt CMakePresets.json .
+COPY ml/backend/ggml/ggml ml/backend/ggml/ggml
+
+FROM ubuntu-vulkan-base AS vulkan-lite
+RUN --mount=type=cache,target=/root/.ccache \
+    cmake --preset 'Vulkan' \
+        && cmake --build --parallel --preset 'Vulkan' \
+        && cmake --install build --component Vulkan --strip --parallel 8
+
 
 FROM base AS cpu
 RUN dnf install -y gcc-toolset-11-gcc gcc-toolset-11-gcc-c++
