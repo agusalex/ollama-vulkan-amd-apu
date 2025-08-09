@@ -87,7 +87,7 @@ jobs:
           push: true
           provenance: false
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}-vulkan
+          tags: ${{ steps.meta.outputs.tags }}-vulkan-lite
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

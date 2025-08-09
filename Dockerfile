@@ -56,7 +56,7 @@ ARG VULKANVERSION
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        build-essential curl ca-certificates ninja-build pkg-config python3 \
-       shaderc libvulkan-dev \
+       libvulkan-dev \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSION}/cmake-${CMAKEVERSION}-linux-$(uname -m).tar.gz \
        | tar xz -C /usr/local --strip-components 1 \
