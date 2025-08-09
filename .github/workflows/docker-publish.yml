@@ -18,20 +18,20 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:
           root-reserve-mb: 3072
           swap-size-mb: 1
+          build-mount-path: ${{ github.workspace }}
           remove-dotnet: true
           remove-android: true
           remove-haskell: true
-          remove-llvm: true
           remove-codeql: true
           remove-docker-images: true
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Prune Docker resources
         run: |
