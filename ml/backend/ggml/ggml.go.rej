@@ -1,0 +1,45 @@
+diff a/ml/backend/ggml/ggml.go b/ml/backend/ggml/ggml.go	(rejected hunks)
+@@ -74,7 +74,8 @@ type Backend struct {
+ 	flashAttention bool
+ 
+ 	// maxGraphNodes is the maximum allowed number of graph nodes in this scheduler
+-	maxGraphNodes int
++    maxGraphNodes int
++    hasVulkan bool
+ }
+ 
+ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
+@@ -107,7 +108,8 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
+ 		bts []*C.struct_ggml_backend_buffer_type
+ 	}
+ 
+-	var cpus, accels, gpus []*C.struct_ggml_backend_device
++    var cpus, accels, gpus []*C.struct_ggml_backend_device
++    hasVulkan := false
+ 	for _, d := range devices() {
+ 		switch C.ggml_backend_dev_type(d) {
+ 		case C.GGML_BACKEND_DEVICE_TYPE_CPU:
+@@ -117,8 +119,11 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
+ 			}
+ 		case C.GGML_BACKEND_DEVICE_TYPE_ACCEL:
+ 			accels = append(accels, d)
+-		case C.GGML_BACKEND_DEVICE_TYPE_GPU:
+-			gpus = append(gpus, d)
++        case C.GGML_BACKEND_DEVICE_TYPE_GPU:
++            gpus = append(gpus, d)
++            if strings.Contains(C.GoString(C.ggml_backend_dev_name(d)), "Vulkan") {
++                hasVulkan = true
++            }
+ 		}
+ 	}
+ 
+@@ -435,7 +440,8 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
+ 		}(),
+ 		requiredMemory: &requiredMemory,
+ 		btDeviceMemory: btDeviceMemory,
+-		maxGraphNodes:  maxGraphNodes,
++        maxGraphNodes:  maxGraphNodes,
++        hasVulkan:      hasVulkan,
+ 	}, nil
+ }
+ 

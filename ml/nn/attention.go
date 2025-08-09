@@ -62,9 +62,9 @@ func Attention(ctx ml.Context, query, key, value ml.Tensor, scale float64, cache
 		if mask != nil {
 			kq = kq.Add(ctx, mask)
 		}
-		kq = kq.Softmax(ctx)
+        kq = kq.Softmax(ctx)
 
-		kqv := value.Mulmat(ctx, kq)
+        kqv := value.MulmatFullPrec(ctx, kq)
 		return kqv.Permute(ctx, 0, 2, 1, 3).Contiguous(ctx)
 	}
 }
