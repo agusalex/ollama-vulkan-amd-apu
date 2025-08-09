@@ -78,6 +78,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: ubuntu-vulkan-base
+          build-args: |
+            CMAKEVERSION=3.31.2
+            VULKANVERSION=1.4.304.1
 
       - name: Build and push Vulkan component image (linux/amd64)
         uses: docker/build-push-action@v6
@@ -92,3 +95,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: vulkan-lite
+          build-args: |
+            CMAKEVERSION=3.31.2
+            VULKANVERSION=1.4.304.1

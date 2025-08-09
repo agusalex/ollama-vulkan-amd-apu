@@ -23,7 +23,6 @@ RUN curl -fsSL https://sdk.lunarg.com/sdk/download/${VULKANVERSION}/linux/vulkan
   && tar -xf /tmp/vulkansdk.tar.xz -C / \
   && dnf -y install ninja-build libcap-devel \
   && ln -sf /usr/bin/python3 /usr/bin/python \
-  && /${VULKANVERSION}/vulkansdk -j 8 vulkan-headers shaderc \
   && cp -r /${VULKANVERSION}/x86_64/include/* /usr/local/include/ \
   && cp -r /${VULKANVERSION}/x86_64/lib/* /usr/local/lib
 ENV VULKAN_SDK=/${VULKANVERSION}/x86_64
@@ -62,7 +61,6 @@ RUN apt-get update \
        | tar xz -C /usr/local --strip-components 1 \
     && curl -fsSL https://sdk.lunarg.com/sdk/download/${VULKANVERSION}/linux/vulkansdk-linux-x86_64-${VULKANVERSION}.tar.xz -o /tmp/vulkansdk.tar.xz \
     && tar -xf /tmp/vulkansdk.tar.xz -C / \
-    && /${VULKANVERSION}/vulkansdk -j 8 vulkan-headers shaderc \
     && cp -r /${VULKANVERSION}/x86_64/include/* /usr/local/include/ \
     && cp -r /${VULKANVERSION}/x86_64/lib/* /usr/local/lib
 ENV VULKAN_SDK=/${VULKANVERSION}/x86_64
