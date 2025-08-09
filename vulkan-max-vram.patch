@@ -1,0 +1,52 @@
+From ceef944577e1f92a429c7a268f68db867c70de1a Mon Sep 17 00:00:00 2001
+From: Agustin Alexander <agustin.alexander@dominodatalab.com>
+Date: Fri, 8 Aug 2025 14:27:05 -0300
+Subject: [PATCH] discover/envconfig: add OLLAMA_MAX_VRAM clamp for UMA GPUs;
+ expose var in env map
+
+---
+ discover/gpu.go     | 8 ++++++++
+ envconfig/config.go | 2 ++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/discover/gpu.go b/discover/gpu.go
+index ab8039ae..477170f0 100644
+--- a/discover/gpu.go
++++ b/discover/gpu.go
+@@ -399,6 +399,10 @@ func GetGPUInfo() GpuInfoList {
+
+                 gpuInfo.TotalMemory = uint64(memInfo.total)
+                 gpuInfo.FreeMemory = uint64(memInfo.free)
++                if limit := envconfig.MaxVRAM(); limit > 0 {
++                    if gpuInfo.TotalMemory > limit { gpuInfo.TotalMemory = limit }
++                    if gpuInfo.FreeMemory > limit { gpuInfo.FreeMemory = limit }
++                }
+                 gpuInfo.ID = C.GoString(&memInfo.gpu_id[0])
+                 gpuInfo.Compute = fmt.Sprintf("%d.%d", memInfo.major, memInfo.minor)
+                 gpuInfo.MinimumMemory = 0
+@@ -528,6 +532,10 @@ func GetGPUInfo() GpuInfoList {
+                 var totalFreeMem float64 = float64(memInfo.free) * 0.95
+                 memInfo.free = C.uint64_t(totalFreeMem)
+                 vulkanGPUs[i].FreeMemory = uint64(memInfo.free)
++                if limit := envconfig.MaxVRAM(); limit > 0 {
++                    if vulkanGPUs[i].TotalMemory > limit { vulkanGPUs[i].TotalMemory = limit }
++                    if vulkanGPUs[i].FreeMemory > limit { vulkanGPUs[i].FreeMemory = limit }
++                }
+             }
+         }
+
+diff --git a/envconfig/config.go b/envconfig/config.go
+index 5cc79524..f474219d 100644
+--- a/envconfig/config.go
++++ b/envconfig/config.go
+@@ -245,6 +245,8 @@ func Uint64(key string, defaultValue uint64) func() uint64 {
+
+ // Set aside VRAM per GPU
+ var GpuOverhead = Uint64("OLLAMA_GPU_OVERHEAD", 0)
++    // MaxVRAM caps the visible VRAM per GPU (bytes). If > 0, TotalMemory and FreeMemory are clamped to this value.
++    var MaxVRAM = Uint64("OLLAMA_MAX_VRAM", 0)
+
+ type EnvVar struct {
+	Name        string
+--
+2.50.0
