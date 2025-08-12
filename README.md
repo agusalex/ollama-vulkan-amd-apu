@@ -1,5 +1,6 @@
 ### Ollama on Vulkan (AMD/APU)
-[![ghcr](https://img.shields.io/badge/ghcr.io-agusalex%2Follama-vulkan-amd-apu-2f5dff?logo=github)](https://github.com/users/agusalex/packages/container/package/ollama-vulkan-amd-apu:latest)
+[![ghcr](https://img.shields.io/badge/ghcr.io%2Fagusalex%2Follama--vulkan--amd--apu-2f5dff?logo=github)](https://github.com/users/agusalex/packages/container/package/ollama-vulkan-amd-apu)
+
 
 This fork adds a Vulkan backend so Ollama can run on AMD GPUs and APUs. It keeps the CLI and API the same, but swaps in Vulkan where available.
 It was tested on an AMD Ryzen 7 5700U with Radeon Graphics @ 1800 MHz Lucienne iGU
