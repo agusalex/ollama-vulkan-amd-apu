@@ -5,7 +5,30 @@
 #include "gpu_info.h"
 
 #ifdef __linux__
-#include <sys/capability.h>
+/* Prefer system capabilities header when available; otherwise provide
+ * minimal fallbacks so the code compiles on systems without libcap-dev. */
+#if defined(__has_include)
+#  if __has_include(<sys/capability.h>)
+#    include <sys/capability.h>
+#  else
+     typedef void* cap_t;
+     typedef int cap_value_t;
+     typedef enum { CAP_EFFECTIVE = 0 } cap_flag_t;
+     typedef enum { CAP_CLEAR = 0, CAP_SET = 1 } cap_flag_value_t;
+     #ifndef CAP_PERFMON
+     #define CAP_PERFMON 38
+     #endif
+#  endif
+#else
+  /* Fallback if __has_include is unavailable */
+  typedef void* cap_t;
+  typedef int cap_value_t;
+  typedef enum { CAP_EFFECTIVE = 0 } cap_flag_t;
+  typedef enum { CAP_CLEAR = 0, CAP_SET = 1 } cap_flag_value_t;
+  #ifndef CAP_PERFMON
+  #define CAP_PERFMON 38
+  #endif
+#endif
 #endif
 
 #include <vulkan/vulkan.h>

@@ -4,6 +4,10 @@
 
 int check_perfmon(vk_handle_t* rh) {
 #ifdef __linux__
+  /* If libcap symbols are not available, skip attempting perfmon enable. */
+  if (!rh->cap_get_proc || !rh->cap_set_flag || !rh->cap_set_proc || !rh->cap_free) {
+    return 0;
+  }
   cap_t caps;
   const cap_value_t cap_list[1] = {CAP_PERFMON};
 
@@ -94,14 +98,8 @@ void vk_init(char* vk_lib_path, char* cap_lib_path, vk_init_resp_t *resp) {
 #ifdef __linux__
   resp->ch.cap_handle = LOAD_LIBRARY(cap_lib_path, RTLD_LAZY);
   if (!resp->ch.cap_handle) {
-    char *msg = LOAD_ERR();
-    LOG(resp->ch.verbose, "library %s load err: %s\n", cap_lib_path, msg);
-    snprintf(buf, buflen,
-            "Unable to load %s library to query for Vulkan GPUs: %s",
-            cap_lib_path, msg);
-    free(msg);
-    resp->err = strdup(buf);
-    return;
+    /* If libcap is not present, continue without perfmon capability. */
+    resp->ch.cap_handle = NULL;
   }
 #endif
 
