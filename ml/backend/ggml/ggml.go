@@ -62,6 +62,15 @@ var initDevices = sync.OnceFunc(func() {
 	}
 })
 
+func devices() []C.ggml_backend_dev_t {
+	initDevices()
+	var allDevices []C.ggml_backend_dev_t
+	allDevices = append(allDevices, cpus...)
+	allDevices = append(allDevices, accels...)
+	allDevices = append(allDevices, gpus...)
+	return allDevices
+}
+
 type Backend struct {
 	// modelPath is the location of the model data
 	modelPath string
