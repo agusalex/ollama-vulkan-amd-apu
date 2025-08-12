@@ -31,14 +31,31 @@
 #endif
 #endif
 
-#include <vulkan/vulkan.h>
+/* Detect Vulkan headers availability */
+#if defined(__has_include)
+#  if __has_include(<vulkan/vulkan.h>)
+#    include <vulkan/vulkan.h>
+#    define VK_HEADERS_AVAILABLE 1
+#  else
+#    define VK_HEADERS_AVAILABLE 0
+#  endif
+#else
+  /* Assume available on toolchains without __has_include */
+#  define VK_HEADERS_AVAILABLE 1
+#  include <vulkan/vulkan.h>
+#endif
 
 typedef struct {
   void* vk_handle;
   void* cap_handle;
   uint16_t verbose;
 
+  /* VkInstance type only when headers are present */
+#if VK_HEADERS_AVAILABLE
   VkInstance vk;
+#else
+  void* vk;
+#endif
   int num_devices;
 
 #ifdef __linux__
@@ -50,6 +67,7 @@ typedef struct {
   int (*cap_free)(cap_t);
 #endif
 
+#if VK_HEADERS_AVAILABLE
   void (*vkGetPhysicalDeviceProperties)(
     VkPhysicalDevice                            physicalDevice,
     VkPhysicalDeviceProperties*                 pProperties);
@@ -72,6 +90,14 @@ typedef struct {
   void (*vkDestroyInstance)(
       VkInstance                                  instance,
       const VkAllocationCallbacks*                pAllocator);
+#else
+  void (*vkGetPhysicalDeviceProperties)(void*, void*);
+  void* (*vkEnumerateDeviceExtensionProperties)(void*, const char*, uint32_t*, void*);
+  void* (*vkCreateInstance)(const void*, const void*, void*);
+  void* (*vkEnumeratePhysicalDevices)(void*, uint32_t*, void*);
+  void (*vkGetPhysicalDeviceMemoryProperties2)(void*, void*);
+  void (*vkDestroyInstance)(void*, const void*);
+#endif
 } vk_handle_t;
 
 typedef struct vk_init_resp

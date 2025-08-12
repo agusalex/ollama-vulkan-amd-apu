@@ -1,5 +1,4 @@
 #include "gpu_info_vulkan.h"
-
 #include <string.h>
 
 int check_perfmon(vk_handle_t* rh) {
@@ -29,8 +28,11 @@ int check_perfmon(vk_handle_t* rh) {
 }
 
 int is_extension_supported(vk_handle_t* rh, VkPhysicalDevice device, char* extension) {
+  /* If Vulkan headers weren't present at build time, skip extension check */
+#ifdef VK_HEADERS_AVAILABLE
   VkPhysicalDeviceProperties properties;
   (*rh->vkGetPhysicalDeviceProperties)(device, &properties);
+#endif
 
   uint32_t extensionCount;
   (*rh->vkEnumerateDeviceExtensionProperties)(device, NULL, &extensionCount, NULL);
