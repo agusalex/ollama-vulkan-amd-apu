@@ -103,6 +103,8 @@ RUN curl -fsSL https://golang.org/dl/go$(awk '/^go/ { print $2 }' go.mod).linux-
 ENV PATH=/usr/local/go/bin:$PATH
 RUN go mod download
 COPY . .
+COPY --from=vulkan dist/lib/ollama/vulkan /usr/local/lib/ollama/vulkan
+ENV LD_LIBRARY_PATH=/usr/local/lib/ollama/vulkan:$LD_LIBRARY_PATH
 ARG GOFLAGS="'-ldflags=-w -s'"
 ENV CGO_ENABLED=1
 RUN --mount=type=cache,target=/root/.cache/go-build \
