@@ -62,6 +62,15 @@ var initDevices = sync.OnceFunc(func() {
 	}
 })
 
+func devices() []C.ggml_backend_dev_t {
+	initDevices()
+	var allDevices []C.ggml_backend_dev_t
+	allDevices = append(allDevices, cpus...)
+	allDevices = append(allDevices, accels...)
+	allDevices = append(allDevices, gpus...)
+	return allDevices
+}
+
 type Backend struct {
 	// modelPath is the location of the model data
 	modelPath string
@@ -97,6 +106,7 @@ type Backend struct {
 
 	// weightBuffers are the GGML contexts and buffers for allocating weights
 	weightBuffers map[*C.struct_ggml_context]C.ggml_backend_buffer_t
+	hasVulkan bool
 }
 
 func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
@@ -130,6 +140,26 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 		d   C.ggml_backend_dev_t
 		bts []C.ggml_backend_buffer_type_t
 	}
+
+	var cpus, accels, gpus []C.ggml_backend_dev_t
+	hasVulkan := false
+	for _, d := range devices() {
+		switch C.ggml_backend_dev_type(d) {
+		case C.GGML_BACKEND_DEVICE_TYPE_CPU:
+			if len(cpus) == 0 {
+				// only the first cpu device should be used
+				cpus = append(cpus, d)
+			}
+		case C.GGML_BACKEND_DEVICE_TYPE_ACCEL:
+			accels = append(accels, d)
+		case C.GGML_BACKEND_DEVICE_TYPE_GPU:
+			gpus = append(gpus, d)
+			if strings.Contains(C.GoString(C.ggml_backend_dev_name(d)), "Vulkan") {
+				hasVulkan = true
+			}
+		}
+	}
+
 
 	blocks := int(meta.KV().BlockCount())
 
@@ -454,6 +484,7 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 		btDeviceMemory: btDeviceMemory,
 		maxGraphNodes:  maxGraphNodes,
 		weightBuffers:  bbs,
+		hasVulkan:      hasVulkan,
 	}, nil
 }
 
@@ -479,7 +510,11 @@ func (b *Backend) Load(ctx context.Context, progress func(float32)) error {
 	totalBytes := uint64(b.meta.Length) - b.meta.Tensors().Offset
 
 	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(runtime.GOMAXPROCS(0))
+	if b.hasVulkan {
+		g.SetLimit(1)
+	} else {
+		g.SetLimit(runtime.GOMAXPROCS(0))
+	}
 	for _, t := range b.meta.Tensors().Items() {
 		t := t
 		g.Go(func() error {
@@ -507,7 +542,11 @@ func (b *Backend) Load(ctx context.Context, progress func(float32)) error {
 			}
 			defer file.Close()
 			sr := io.NewSectionReader(file, int64(b.meta.Tensors().Offset+t.Offset), int64(t.Size()))
-			bts := make([]byte, 128*format.KibiByte)
+			chunkKiB := 128
+			if b.hasVulkan {
+				chunkKiB = 64
+			}
+			bts := make([]byte, chunkKiB*format.KibiByte)
 
 			var s uint64
 			for s < t.Size() {

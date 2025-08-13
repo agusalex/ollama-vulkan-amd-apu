@@ -177,6 +177,8 @@ var (
 	SchedSpread = Bool("OLLAMA_SCHED_SPREAD")
 	// IntelGPU enables experimental Intel GPU detection.
 	IntelGPU = Bool("OLLAMA_INTEL_GPU")
+    // AllowIGPU allows running on integrated GPUs even if normally skipped
+    AllowIGPU = Bool("OLLAMA_ALLOW_IGPU")
 	// MultiUserCache optimizes prompt caching for multi-user scenarios
 	MultiUserCache = Bool("OLLAMA_MULTIUSER_CACHE")
 	// Enable the new Ollama engine
@@ -199,6 +201,7 @@ var (
 	CudaVisibleDevices    = String("CUDA_VISIBLE_DEVICES")
 	HipVisibleDevices     = String("HIP_VISIBLE_DEVICES")
 	RocrVisibleDevices    = String("ROCR_VISIBLE_DEVICES")
+    VkVisibleDevices      = String("GGML_VK_VISIBLE_DEVICES")
 	GpuDeviceOrdinal      = String("GPU_DEVICE_ORDINAL")
 	HsaOverrideGfxVersion = String("HSA_OVERRIDE_GFX_VERSION")
 )
@@ -242,6 +245,8 @@ func Uint64(key string, defaultValue uint64) func() uint64 {
 
 // Set aside VRAM per GPU
 var GpuOverhead = Uint64("OLLAMA_GPU_OVERHEAD", 0)
+    // MaxVRAM caps the visible VRAM per GPU (bytes). If > 0, TotalMemory and FreeMemory are clamped to this value.
+    var MaxVRAM = Uint64("OLLAMA_MAX_VRAM", 0)
 
 type EnvVar struct {
 	Name        string
@@ -288,9 +293,11 @@ func AsMap() map[string]EnvVar {
 		ret["CUDA_VISIBLE_DEVICES"] = EnvVar{"CUDA_VISIBLE_DEVICES", CudaVisibleDevices(), "Set which NVIDIA devices are visible"}
 		ret["HIP_VISIBLE_DEVICES"] = EnvVar{"HIP_VISIBLE_DEVICES", HipVisibleDevices(), "Set which AMD devices are visible by numeric ID"}
 		ret["ROCR_VISIBLE_DEVICES"] = EnvVar{"ROCR_VISIBLE_DEVICES", RocrVisibleDevices(), "Set which AMD devices are visible by UUID or numeric ID"}
+        ret["GGML_VK_VISIBLE_DEVICES"] = EnvVar{"GGML_VK_VISIBLE_DEVICES", VkVisibleDevices(), "Set which Vulkan devices are visible by numeric ID"}
 		ret["GPU_DEVICE_ORDINAL"] = EnvVar{"GPU_DEVICE_ORDINAL", GpuDeviceOrdinal(), "Set which AMD devices are visible by numeric ID"}
 		ret["HSA_OVERRIDE_GFX_VERSION"] = EnvVar{"HSA_OVERRIDE_GFX_VERSION", HsaOverrideGfxVersion(), "Override the gfx used for all detected AMD GPUs"}
-		ret["OLLAMA_INTEL_GPU"] = EnvVar{"OLLAMA_INTEL_GPU", IntelGPU(), "Enable experimental Intel GPU detection"}
+        ret["OLLAMA_INTEL_GPU"] = EnvVar{"OLLAMA_INTEL_GPU", IntelGPU(), "Enable experimental Intel GPU detection"}
+        ret["OLLAMA_ALLOW_IGPU"] = EnvVar{"OLLAMA_ALLOW_IGPU", AllowIGPU(), "Allow running on integrated GPUs (override safety checks)"}
 	}
 
 	return ret

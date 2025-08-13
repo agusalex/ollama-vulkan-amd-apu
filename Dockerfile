@@ -6,16 +6,29 @@ ARG ROCMVERSION=6.3.3
 ARG JETPACK5VERSION=r35.4.1
 ARG JETPACK6VERSION=r36.4.0
 ARG CMAKEVERSION=3.31.2
+ARG VULKANVERSION=1.4.304.1
 
 # We require gcc v10 minimum.  v10.3 has regressions, so the rockylinux 8.5 AppStream has the latest compatible version
-FROM --platform=linux/amd64 rocm/dev-almalinux-8:${ROCMVERSION}-complete AS base-amd64
+FROM --platform=linux/amd64 docker.io/rocm/dev-almalinux-8:${ROCMVERSION}-complete AS base-amd64
 RUN yum install -y yum-utils \
     && yum-config-manager --add-repo https://dl.rockylinux.org/vault/rocky/8.5/AppStream/\$basearch/os/ \
     && rpm --import https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-8 \
     && dnf install -y yum-utils ccache gcc-toolset-10-gcc-10.2.1-8.2.el8 gcc-toolset-10-gcc-c++-10.2.1-8.2.el8 gcc-toolset-10-binutils-2.35-11.el8 \
-    && dnf install -y ccache \
     && yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
 ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ARG VULKANVERSION
+# Install LunarG Vulkan SDK (headers + glslc) for x86 build environment
+RUN curl -fsSL https://sdk.lunarg.com/sdk/download/${VULKANVERSION}/linux/vulkansdk-linux-x86_64-${VULKANVERSION}.tar.xz \
+      -o /tmp/vulkansdk.tar.xz \
+  && tar -xf /tmp/vulkansdk.tar.xz -C / \
+  && dnf -y install ninja-build libcap-devel \
+  && ln -sf /usr/bin/python3 /usr/bin/python \
+  && /${VULKANVERSION}/vulkansdk -j 8 vulkan-headers shaderc \
+  && cp -r /${VULKANVERSION}/x86_64/include/* /usr/local/include/ \
+  && cp -r /${VULKANVERSION}/x86_64/lib/* /usr/local/lib
+ENV VULKAN_SDK=/${VULKANVERSION}/x86_64
+ENV PATH=${VULKAN_SDK}/bin:$PATH
+ENV CMAKE_PREFIX_PATH=${VULKAN_SDK}
 
 FROM --platform=linux/arm64 almalinux:8 AS base-arm64
 # install epel-release for ccache
@@ -30,6 +43,12 @@ RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSIO
 COPY CMakeLists.txt CMakePresets.json .
 COPY ml/backend/ggml/ggml ml/backend/ggml/ggml
 ENV LDFLAGS=-s
+FROM base AS vulkan
+RUN --mount=type=cache,target=/root/.ccache \
+    cmake --preset 'Vulkan' \
+        && cmake --build --parallel --preset 'Vulkan' \
+        && cmake --install build --component Vulkan --strip --parallel 8
+
 
 FROM base AS cpu
 RUN dnf install -y gcc-toolset-11-gcc gcc-toolset-11-gcc-c++
@@ -84,6 +103,8 @@ RUN curl -fsSL https://golang.org/dl/go$(awk '/^go/ { print $2 }' go.mod).linux-
 ENV PATH=/usr/local/go/bin:$PATH
 RUN go mod download
 COPY . .
+COPY --from=vulkan dist/lib/ollama/vulkan /usr/local/lib/ollama/vulkan
+ENV LD_LIBRARY_PATH=/usr/local/lib/ollama/vulkan:$LD_LIBRARY_PATH
 ARG GOFLAGS="'-ldflags=-w -s'"
 ENV CGO_ENABLED=1
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -91,6 +112,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 FROM --platform=linux/amd64 scratch AS amd64
 COPY --from=cuda-12 dist/lib/ollama /lib/ollama
+COPY --from=vulkan  dist/lib/ollama/vulkan  /lib/ollama/vulkan
 
 FROM --platform=linux/arm64 scratch AS arm64
 COPY --from=cuda-12 dist/lib/ollama /lib/ollama/cuda_sbsa
@@ -106,7 +128,7 @@ COPY --from=build /bin/ollama /bin/ollama
 
 FROM ubuntu:24.04
 RUN apt-get update \
-    && apt-get install -y ca-certificates \
+    && apt-get install -y ca-certificates libcap2 libvulkan1 mesa-vulkan-drivers \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=archive /bin /usr/bin

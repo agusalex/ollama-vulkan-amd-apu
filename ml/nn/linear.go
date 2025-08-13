@@ -8,7 +8,7 @@ type Linear struct {
 }
 
 func (m *Linear) Forward(ctx ml.Context, t ml.Tensor) ml.Tensor {
-	t = m.Weight.Mulmat(ctx, t)
+    t = m.Weight.MulmatFullPrec(ctx, t)
 	if m.Bias != nil {
 		t = t.Add(ctx, m.Bias)
 	}
