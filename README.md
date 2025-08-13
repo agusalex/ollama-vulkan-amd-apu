@@ -3,7 +3,7 @@
 
 
 This fork adds a Vulkan backend so Ollama can run on AMD GPUs and APUs. It keeps the CLI and API the same, but swaps in Vulkan where available.
-It was tested on an AMD Ryzen 7 5700U with Radeon Graphics @ 1800 MHz Lucienne iGU
+It was tested on an AMD Ryzen 7 5700U with Radeon Graphics @ 1800 MHz Lucienne iGPU
 
 
 ### What changed
