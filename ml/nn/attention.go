@@ -73,7 +73,7 @@ func AttentionWithVMLA(ctx ml.Context, query, key, value, sinks ml.Tensor, vmla 
 		}
 		kq = kq.Softmax(ctx)
 
-		kqv := value.Mulmat(ctx, kq)
+		kqv := value.MulmatFullPrec(ctx, kq)
 
 		if vmla != nil {
 			kqv = vmla.Mulmat(ctx, kqv)

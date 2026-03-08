@@ -111,6 +111,9 @@ type Backend struct {
 
 	flashAttention ml.FlashAttentionType
 
+	// hasVulkan indicates if any GPU device is a Vulkan backend
+	hasVulkan bool
+
 	// maxGraphNodes is the maximum allowed number of graph nodes in this scheduler
 	maxGraphNodes int
 
@@ -419,6 +422,19 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 			"size", format.HumanBytes2(uint64(C.ggml_backend_buffer_get_size(bs))))
 	}
 
+	// Detect Vulkan backend for device-specific tuning
+	hasVulkan := false
+	for i := range C.ggml_backend_dev_count() {
+		d := C.ggml_backend_dev_get(i)
+		if C.ggml_backend_dev_type(d) == C.GGML_BACKEND_DEVICE_TYPE_GPU ||
+			C.ggml_backend_dev_type(d) == C.GGML_BACKEND_DEVICE_TYPE_IGPU {
+			if strings.Contains(strings.ToLower(C.GoString(C.ggml_backend_dev_name(d))), "vulkan") {
+				hasVulkan = true
+				break
+			}
+		}
+	}
+
 	return &Backend{
 		modelPath:         modelPath,
 		allocMemory:       params.AllocMemory,
@@ -443,6 +459,7 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 		}(),
 		requiredMemory: &requiredMemory,
 		btDeviceMemory: btDeviceMemory,
+		hasVulkan:      hasVulkan,
 		maxGraphNodes:  maxGraphNodes,
 		weightBuffers:  bbs,
 	}, nil
@@ -497,7 +514,17 @@ func (b *Backend) Load(ctx context.Context, progress func(float32)) error {
 	totalBytes := uint64(b.meta.Length) - b.meta.Tensors().Offset
 
 	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(runtime.GOMAXPROCS(0))
+	if b.hasVulkan {
+		// Vulkan drivers can be overwhelmed by parallel weight uploads
+		g.SetLimit(1)
+	} else {
+		g.SetLimit(runtime.GOMAXPROCS(0))
+	}
+	chunkSize := 128 * format.KibiByte
+	if b.hasVulkan {
+		// Smaller chunks reduce memory pressure on Vulkan
+		chunkSize = 64 * format.KibiByte
+	}
 	for _, t := range b.meta.Tensors().Items() {
 		g.Go(func() error {
 			tts := make([]*C.struct_ggml_tensor, max(1, len(b.tensorLoadTargets[t.Name])))
@@ -568,7 +595,7 @@ func (b *Backend) Load(ctx context.Context, progress func(float32)) error {
 				// source is bf16, target is ggml fp32
 
 				// data is bf16 but we need to convert to fp32
-				bts := make([]byte, 128*format.KibiByte)
+				bts := make([]byte, chunkSize)
 				var e uint64
 				for e < t.Elements() {
 					// Stop if either the parent context has been canceled or if any of the other tensors returned an error
@@ -594,7 +621,7 @@ func (b *Backend) Load(ctx context.Context, progress func(float32)) error {
 				return nil
 			}
 
-			bts := make([]byte, 128*format.KibiByte)
+			bts := make([]byte, chunkSize)
 
 			var s uint64
 			for s < t.Size() {
